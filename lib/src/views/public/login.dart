@@ -1,6 +1,6 @@
 import 'package:adduevents/src/views/public/dashboard.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Add this for FirebaseAuth
+import 'package:firebase_auth/firebase_auth.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,7 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // Regular expression to check if the email is in a valid format
+ 
   bool _isValidEmail(String email) {
     final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
     return emailRegex.hasMatch(email);
@@ -155,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(
                         width: 250,
                         child: ElevatedButton(
-                          onPressed: _signUp, // Sign up button calls _signUp method
+                          onPressed: _signUp, 
                           child: const Text('Sign Up'),
                         ),
                       ),
