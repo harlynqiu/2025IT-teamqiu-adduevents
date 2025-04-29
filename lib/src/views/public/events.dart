@@ -12,9 +12,11 @@ class _EventsScreenState extends State<EventsScreen> {
   final TextEditingController _eventNameController = TextEditingController();
   final TextEditingController _eventDescriptionController = TextEditingController();
   final TextEditingController _eventLocationController = TextEditingController();
-  final TextEditingController _eventDateController = TextEditingController();
+
+  DateTime? _selectedDate;
   String? _selectedOrganizationId;
   String? _selectedStatus;
+  String? _selectedOrganizationImageUrl;
 
   final List<String> _statusOptions = ['Scheduled', 'On-going', 'Cancelled'];
 
@@ -49,9 +51,20 @@ class _EventsScreenState extends State<EventsScreen> {
                   decoration: const InputDecoration(labelText: 'Location'),
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: _eventDateController,
-                  decoration: const InputDecoration(labelText: 'Event Date (YYYY-MM-DD)'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedDate == null
+                            ? 'Select Event Date'
+                            : 'Date: ${_selectedDate!.toLocal()}'.split(' ')[0],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: _pickDate,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
@@ -66,9 +79,24 @@ class _EventsScreenState extends State<EventsScreen> {
                   onChanged: (value) {
                     setState(() {
                       _selectedOrganizationId = value;
+                      if (value != null) {
+                        final selectedOrg = organizations.firstWhere((org) => org.id == value);
+                        _selectedOrganizationImageUrl = selectedOrg['organizationImageUrl'] ?? '';
+                      }
                     });
                   },
                 ),
+                const SizedBox(height: 10),
+                if (_selectedOrganizationImageUrl != null && _selectedOrganizationImageUrl!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      _selectedOrganizationImageUrl!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   value: _selectedStatus,
@@ -112,28 +140,58 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
+  Future<void> _pickDate() async {
+    DateTime now = DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 2)),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
   Future<bool> _createEvent() async {
     final String name = _eventNameController.text.trim();
     final String description = _eventDescriptionController.text.trim();
     final String location = _eventLocationController.text.trim();
-    final String date = _eventDateController.text.trim();
     final String? organizationId = _selectedOrganizationId;
     final String? status = _selectedStatus;
 
-    if (name.isEmpty || description.isEmpty || location.isEmpty || date.isEmpty || organizationId == null || status == null) {
+    if (name.isEmpty || description.isEmpty || location.isEmpty || _selectedDate == null || organizationId == null || status == null) {
       return false;
     }
 
     try {
-      await FirebaseFirestore.instance.collection('events').add({
+      // Fetch the organization to get the imageUrl
+      final orgDoc = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(organizationId)
+          .get();
+
+      // Set the imageUrl based on the organization's document
+      _selectedOrganizationImageUrl = orgDoc['organizationImageUrl'] ?? '';
+
+      final eventData = {
         'name': name,
         'description': description,
         'location': location,
-        'date': date,
+        'date': _selectedDate!.toIso8601String().split('T')[0], // YYYY-MM-DD format
         'status': status,
         'organizationId': organizationId,
         'createdAt': Timestamp.now(),
-      });
+      };
+
+      // Add the organization image URL only if it's not null or empty
+      if (_selectedOrganizationImageUrl != null && _selectedOrganizationImageUrl!.isNotEmpty) {
+        eventData['organizationImageUrl'] = _selectedOrganizationImageUrl!;
+      }
+
+      await FirebaseFirestore.instance.collection('events').add(eventData);
       return true;
     } catch (e) {
       print('Error creating event: $e');
@@ -145,8 +203,9 @@ class _EventsScreenState extends State<EventsScreen> {
     _eventNameController.clear();
     _eventDescriptionController.clear();
     _eventLocationController.clear();
-    _eventDateController.clear();
+    _selectedDate = null;
     _selectedOrganizationId = null;
+    _selectedOrganizationImageUrl = null;
     _selectedStatus = null;
   }
 
@@ -208,6 +267,7 @@ class _EventsScreenState extends State<EventsScreen> {
                       final date = doc['date'];
                       final status = doc['status'];
                       final organizationId = doc['organizationId'];
+                      final organizationImageUrl = doc['organizationImageUrl'] ?? '';
 
                       return Card(
                         shape: RoundedRectangleBorder(
@@ -219,6 +279,17 @@ class _EventsScreenState extends State<EventsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (organizationImageUrl.isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(
+                                    organizationImageUrl,
+                                    height: 150,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              const SizedBox(height: 10),
                               Text(
                                 name,
                                 style: const TextStyle(

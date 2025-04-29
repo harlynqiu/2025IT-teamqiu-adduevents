@@ -17,8 +17,8 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _statusController = TextEditingController();
   final TextEditingController _uidController = TextEditingController();
+  final TextEditingController _organizationImageUrlController = TextEditingController(); // UPDATED
 
-  // Show dialog to create organization
   void _showCreateOrganizationDialog() {
     showDialog(
       context: context,
@@ -67,6 +67,11 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
                   controller: _uidController,
                   decoration: const InputDecoration(labelText: 'UID'),
                 ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _organizationImageUrlController,
+                  decoration: const InputDecoration(labelText: 'Organization Image URL (optional)'),
+                ),
               ],
             ),
           ),
@@ -94,43 +99,35 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
     );
   }
 
-  // Create new organization and save to Firestore
   Future<bool> _createOrganization() async {
     final String name = _nameController.text.trim();
     final String acronym = _acronymController.text.trim();
     final String categoryString = _categoryController.text.trim();
     final List<String> category = categoryString.isNotEmpty
         ? categoryString.split(',').map((e) => e.trim()).toList()
-        : []; // Split the category string into a list
+        : [];
     final String email = _emailController.text.trim();
     final String facebook = _facebookController.text.trim();
     final String mobile = _mobileController.text.trim();
-    final String status = _statusController.text.trim(); // Active/Inactive
-    final String uid = _uidController.text.trim(); // User ID
-
-    // Assign image URLs based on the organization name
-    String imageUrl = '';
-    if (name == 'Running Club') {
-      imageUrl = 'https://images.pexels.com/photos/4920429/pexels-photo-4920429.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1';
-    } else if (name == 'Cateneo') {
-      imageUrl = 'https://images.pexels.com/photos/2286016/pexels-photo-2286016.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1';
-    }
+    final String status = _statusController.text.trim();
+    final String uid = _uidController.text.trim();
+    final String organizationImageUrl = _organizationImageUrlController.text.trim(); // UPDATED
 
     if (name.isEmpty || acronym.isEmpty || category.isEmpty || email.isEmpty || facebook.isEmpty || mobile.isEmpty || status.isEmpty || uid.isEmpty) {
-      return false; // Ensure all fields are filled
+      return false;
     }
 
     try {
       await FirebaseFirestore.instance.collection('organizations').add({
         'name': name,
         'acronym': acronym,
-        'category': category, // Save category as an array
+        'category': category,
         'email': email,
         'facebook': facebook,
         'mobile': mobile,
         'status': status,
         'uid': uid,
-        'imageUrl': imageUrl, // Save image URL for the organization
+        'organizationImageUrl': organizationImageUrl, // UPDATED
         'createdAt': Timestamp.now(),
       });
       return true;
@@ -140,7 +137,6 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
     }
   }
 
-  // Clear the form fields after saving or canceling
   void _clearFields() {
     _nameController.clear();
     _acronymController.clear();
@@ -150,6 +146,7 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
     _mobileController.clear();
     _statusController.clear();
     _uidController.clear();
+    _organizationImageUrlController.clear(); // UPDATED
   }
 
   @override
@@ -194,42 +191,37 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
                     itemCount: snapshot.data!.docs.length,
                     itemBuilder: (context, index) {
                       final doc = snapshot.data!.docs[index];
-                      final name = doc['name'];
-                      final acronym = doc['acronym'];
-                      final category = List<String>.from(doc['category']); // Convert category to list
-                      final email = doc['email'];
-                      final facebook = doc['facebook'];
-                      final mobile = doc['mobile'];
-                      final status = doc['status'];
-                      final uid = doc['uid'];
-                      final imageUrl = doc['imageUrl'];
+                      final name = doc['name'] ?? 'Unknown';
+                      final acronym = doc['acronym'] ?? 'Unknown';
+                      final category = doc.data().toString().contains('category') ? List<String>.from(doc['category']) : [];
+                      final email = doc['email'] ?? 'Unknown';
+                      final facebook = doc['facebook'] ?? 'Unknown';
+                      final mobile = doc['mobile'] ?? 'Unknown';
+                      final status = doc['status'] ?? 'Unknown';
+                      final uid = doc['uid'] ?? 'Unknown';
+                      final organizationImageUrl = doc['organizationImageUrl'] ?? ''; // UPDATED
 
                       return Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        elevation: 3, // Lower elevation for a flatter card
+                        elevation: 3,
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.network(
-                                  imageUrl,
-                                  height: 120,  // Adjust image size
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const SizedBox(
-                                      height: 120,
-                                      child: Center(child: Text('Image load error')),
-                                    );
-                                  },
+                              if (organizationImageUrl.isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(
+                                    organizationImageUrl,
+                                    height: 150,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Text(
                                 name,
                                 style: const TextStyle(
@@ -239,7 +231,7 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
                               ),
                               const SizedBox(height: 5),
                               Text('Acronym: $acronym'),
-                              Text('Categories: ${category.join(', ')}'), // Display categories as a comma-separated string
+                              Text('Categories: ${category.join(', ')}'),
                               Text('Email: $email'),
                               Text('Facebook: $facebook'),
                               Text('Mobile: $mobile'),
@@ -259,4 +251,4 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
       ),
     );
   }
-} 
+}
